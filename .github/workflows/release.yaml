@@ -106,3 +106,10 @@ jobs:
             tar -czf $archive *
             echo "archive=dist/$name.tar.gz" >> $GITHUB_OUTPUT
         fi
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ github.repository }}-${{ steps.check-tag.outputs.version }}-${{ matrix.target }}
+        path: ${{ steps.package.outputs.archive }}
+        retention-days: 90
