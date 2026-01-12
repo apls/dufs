@@ -110,6 +110,6 @@ jobs:
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ github.repository }}-${{ steps.check-tag.outputs.version }}-${{ matrix.target }}
+        name: apls-dufs-${{ steps.check-tag.outputs.version }}-${{ matrix.target }}
         path: ${{ steps.package.outputs.archive }}
         retention-days: 90
