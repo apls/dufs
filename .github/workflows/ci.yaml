@@ -32,6 +32,8 @@ jobs:
 
     - name: Install Rust Toolchain Components
       uses: dtolnay/rust-toolchain@stable
+      with:
+       toolchain: stable
 
     - uses: Swatinem/rust-cache@v2
 
@@ -42,6 +44,8 @@ jobs:
       run: cargo fmt --all --check
       
     - name: Upload
+      # if: always()                         # upload even on failure (optional)
       uses: actions/upload-artifact@v4
       with:
+        name: target-${{ matrix.os }}      # make artifact name unique per matrix entry
         path: target
