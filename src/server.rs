@@ -152,7 +152,7 @@ impl Server {
         let relative_path = match self.resolve_path(req_path) {
             Some(v) => v,
             None => {
-                status_bad_request(&mut res, "Invalid Path");
+                status_bad_request(&mut res, "无效的路径");
                 return Ok(res);
             }
         };
@@ -457,7 +457,7 @@ impl Server {
                         status_forbid(&mut res);
                     } else if !is_miss {
                         *res.status_mut() = StatusCode::METHOD_NOT_ALLOWED;
-                        *res.body_mut() = body_full("Already exists");
+                        *res.body_mut() = body_full("已存在");
                     } else {
                         self.handle_mkcol(path, &mut res).await?;
                     }
@@ -1046,7 +1046,7 @@ impl Server {
                 Some(0) => 0,
                 Some(1) => 1,
                 _ => {
-                    status_bad_request(res, "Invalid depth: only 0 and 1 are allowed.");
+                    status_bad_request(res, "无效的深度：仅允许 0 和 1。");
                     return Ok(());
                 }
             },
@@ -1300,7 +1300,7 @@ impl Server {
         {
             Some(dest) => dest,
             None => {
-                status_bad_request(res, "Invalid Destination");
+                status_bad_request(res, "无效的目标");
                 return None;
             }
         };
@@ -1724,12 +1724,12 @@ fn extract_cache_headers(meta: &Metadata) -> Option<(ETag, LastModified)> {
 
 fn status_forbid(res: &mut Response) {
     *res.status_mut() = StatusCode::FORBIDDEN;
-    *res.body_mut() = body_full("Forbidden");
+    *res.body_mut() = body_full("禁止访问");
 }
 
 fn status_not_found(res: &mut Response) {
     *res.status_mut() = StatusCode::NOT_FOUND;
-    *res.body_mut() = body_full("Not Found");
+    *res.body_mut() = body_full("未找到");
 }
 
 fn status_no_content(res: &mut Response) {
