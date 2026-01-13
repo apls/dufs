@@ -110,12 +110,12 @@ let $userName;
 window.addEventListener("DOMContentLoaded", async () => {
   const $indexData = document.getElementById('index-data');
   if (!$indexData) {
-    alert("No data");
+    alert("无数据");
     return;
   }
 
   DATA = JSON.parse(decodeBase64($indexData.innerHTML));
-  DIR_EMPTY_NOTE = PARAMS.q ? 'No results' : DATA.dir_exists ? 'Empty folder' : 'Folder will be created when a file is uploaded';
+  DIR_EMPTY_NOTE = PARAMS.q ? '无结果' : DATA.dir_exists ? '空文件夹' : '上传文件时将创建文件夹';
 
   await ready();
 });
@@ -134,17 +134,17 @@ async function ready() {
   addBreadcrumb(DATA.href, DATA.uri_prefix);
 
   if (DATA.kind === "Index") {
-    document.title = `Index of ${DATA.href} - Dufs`;
+    document.title = `${DATA.href} 的索引 - Dufs`;
     document.querySelector(".index-page").classList.remove("hidden");
 
     await setupIndexPage();
   } else if (DATA.kind === "Edit") {
-    document.title = `Edit ${DATA.href} - Dufs`;
+    document.title = `编辑 ${DATA.href} - Dufs`;
     document.querySelector(".editor-page").classList.remove("hidden");
 
     await setupEditorPage();
   } else if (DATA.kind === "View") {
-    document.title = `View ${DATA.href} - Dufs`;
+    document.title = `查看 ${DATA.href} - Dufs`;
     document.querySelector(".editor-page").classList.remove("hidden");
 
     await setupEditorPage();
@@ -346,7 +346,7 @@ async function setupIndexPage() {
   if (DATA.allow_archive) {
     const $download = document.querySelector(".download");
     $download.href = baseUrl() + "?zip";
-    $download.title = "Download folder as a .zip file";
+    $download.title = "下载文件夹为 .zip 文件";
     $download.classList.add("dlwt");
     $download.classList.remove("hidden");
   }
@@ -382,17 +382,17 @@ function renderPathsTableHead() {
     {
       name: "name",
       props: `colspan="2"`,
-      text: "Name",
+      text: "名称",
     },
     {
       name: "mtime",
       props: ``,
-      text: "Last Modified",
+      text: "修改时间",
     },
     {
       name: "size",
       props: ``,
-      text: "Size",
+      text: "大小",
     }
   ];
   $pathsTableHead.insertAdjacentHTML("beforeend", `
@@ -412,7 +412,7 @@ function renderPathsTableHead() {
     const icon = `<span>${svg}</span>`
     return `<th class="cell-${item.name}" ${item.props}><a href="?${qs}">${item.text}${icon}</a></th>`
   }).join("\n")}
-      <th class="cell-actions">Actions</th>
+      <th class="cell-actions">操作</th>
     </tr>
   `);
 }
@@ -454,27 +454,27 @@ function addPath(file, index) {
     if (DATA.allow_archive) {
       actionDownload = `
       <div class="action-btn">
-        <a class="dlwt" href="${url}?zip" title="Download folder as a .zip file" download>${ICONS.download}</a>
+        <a class="dlwt" href="${url}?zip" title="下载文件夹为 .zip 文件" download>${ICONS.download}</a>
       </div>`;
     }
   } else {
     actionDownload = `
     <div class="action-btn" >
-      <a class="dlwt" href="${url}" title="Download file" download>${ICONS.download}</a>
+      <a class="dlwt" href="${url}" title="下载文件" download>${ICONS.download}</a>
     </div>`;
   }
   if (DATA.allow_delete) {
     if (DATA.allow_upload) {
-      actionMove = `<div onclick="movePath(${index})" class="action-btn" id="moveBtn${index}" title="Move to new path">${ICONS.move}</div>`;
+      actionMove = `<div onclick="movePath(${index})" class="action-btn" id="moveBtn${index}" title="移动到新路径">${ICONS.move}</div>`;
       if (!isDir) {
-        actionEdit = `<a class="action-btn" title="Edit file" target="_blank" href="${url}?edit">${ICONS.edit}</a>`;
+        actionEdit = `<a class="action-btn" title="编辑文件" target="_blank" href="${url}?edit">${ICONS.edit}</a>`;
       }
     }
     actionDelete = `
-    <div onclick="deletePath(${index})" class="action-btn" id="deleteBtn${index}" title="Delete">${ICONS.delete}</div>`;
+    <div onclick="deletePath(${index})" class="action-btn" id="deleteBtn${index}" title="删除">${ICONS.delete}</div>`;
   }
   if (!actionEdit && !isDir) {
-    actionView = `<a class="action-btn" title="View file" target="_blank" href="${url}?view">${ICONS.view}</a>`;
+    actionView = `<a class="action-btn" title="查看文件" target="_blank" href="${url}?view">${ICONS.view}</a>`;
   }
   let actionCell = `
   <td class="cell-actions">
@@ -551,7 +551,7 @@ function setupDownloadWithToken() {
         const tokengenUrl = new URL(originalHref);
         tokengenUrl.searchParams.set("tokengen", "");
         const res = await fetch(tokengenUrl);
-        if (!res.ok) throw new Error("Failed to fetch token");
+        if (!res.ok) throw new Error("获取令牌失败");
         const token = await res.text();
         const downloadUrl = new URL(originalHref);
         downloadUrl.searchParams.set("token", token);
@@ -562,7 +562,7 @@ function setupDownloadWithToken() {
         tempA.click();
         document.body.removeChild(tempA);
       } catch (err) {
-        alert(`Failed to download, ${err.message}`);
+        alert(`下载失败, ${err.message}`);
       }
     });
   });
@@ -600,7 +600,7 @@ function setupNewFolder() {
   const $newFolder = document.querySelector(".new-folder");
   $newFolder.classList.remove("hidden");
   $newFolder.addEventListener("click", () => {
-    const name = prompt("Enter folder name");
+    const name = prompt("输入文件夹名称");
     if (name) createFolder(name);
   });
 }
@@ -609,7 +609,7 @@ function setupNewFile() {
   const $newFile = document.querySelector(".new-file");
   $newFile.classList.remove("hidden");
   $newFile.addEventListener("click", () => {
-    const name = prompt("Enter file name");
+    const name = prompt("输入文件名称");
     if (name) createFile(name);
   });
 }
@@ -659,7 +659,7 @@ async function setupEditorPage() {
       $notEditable.insertAdjacentHTML("afterend", `<iframe src="${url}" sandbox width="100%" height="${window.innerHeight - 100}px"></iframe>`);
     } else {
       $notEditable.classList.remove("hidden");
-      $notEditable.textContent = "Cannot edit because file is too large or binary.";
+      $notEditable.textContent = "无法编辑，因为文件过大或为二进制文件。";
     }
     return;
   }
@@ -678,7 +678,7 @@ async function setupEditorPage() {
       $editor.value = decoder.decode(dataView);
     }
   } catch (err) {
-    alert(`Failed to get file, ${err.message}`);
+    alert(`获取文件失败, ${err.message}`);
   }
 }
 
@@ -702,7 +702,7 @@ async function deletePath(index) {
 }
 
 async function doDeletePath(name, url, cb) {
-  if (!confirm(`Delete \`${name}\`?`)) return;
+  if (!confirm(`删除 \`${name}\`?`)) return;
   try {
     await checkAuth();
     const res = await fetch(url, {
@@ -711,7 +711,7 @@ async function doDeletePath(name, url, cb) {
     await assertResOK(res);
     cb();
   } catch (err) {
-    alert(`Cannot delete \`${file.name}\`, ${err.message}`);
+    alert(`无法删除 \`${file.name}\`, ${err.message}`);
   }
 }
 
@@ -737,7 +737,7 @@ async function doMovePath(fileUrl) {
 
   const filePath = decodeURIComponent(fileUrlObj.pathname.slice(prefix.length));
 
-  let newPath = prompt("Enter new path", filePath);
+  let newPath = prompt("输入新路径", filePath);
   if (!newPath) return;
   if (!newPath.startsWith("/")) newPath = "/" + newPath;
   if (filePath === newPath) return;
@@ -749,7 +749,7 @@ async function doMovePath(fileUrl) {
       method: "HEAD",
     });
     if (res1.status === 200) {
-      if (!confirm("Override existing file?")) {
+      if (!confirm("覆盖现有文件?")) {
         return;
       }
     }
@@ -762,7 +762,7 @@ async function doMovePath(fileUrl) {
     await assertResOK(res2);
     return newFileUrl;
   } catch (err) {
-    alert(`Cannot move \`${filePath}\` to \`${newPath}\`, ${err.message}`);
+    alert(`无法移动 \`${filePath}\` 到 \`${newPath}\`, ${err.message}`);
   }
 }
 
@@ -778,7 +778,7 @@ async function saveChange() {
     });
     location.reload();
   } catch (err) {
-    alert(`Failed to save file, ${err.message}`);
+    alert(`保存文件失败, ${err.message}`);
   }
 }
 
