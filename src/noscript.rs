@@ -78,7 +78,7 @@ fn format_mtime(mtime: u64) -> Option<String> {
 
 fn format_size(size: u64, path_type: PathType) -> String {
     if path_type.is_dir() {
-        let unit = if size == 1 { "项" } else { "项" };
+        let unit = "项";
         let num = match size >= MAX_SUBPATHS_COUNT {
             true => format!(">{}", MAX_SUBPATHS_COUNT - 1),
             false => size.to_string(),
