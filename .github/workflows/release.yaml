@@ -3,117 +3,126 @@ name: Release
 on:
   push:
     tags:
-    - v[0-9]+.[0-9]+.[0-9]+*
+      - v[0-9]+.[0-9]+.[0-9]+*
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布版本号 (手动触发时填写，例如 v0.42.0)'
+        required: true
+        default: 'v0.42.0'
 
 jobs:
   release:
     name: Publish to Github Releases
     permissions:
       contents: write
-    outputs:
-      rc: ${{ steps.check-tag.outputs.rc }}
 
     strategy:
+      fail-fast: false
       matrix:
         include:
-        - target: x86_64-pc-windows-msvc
-          os: windows-latest
-          cargo-flags: ""
-        - target: x86_64-unknown-linux-musl
-          os: ubuntu-latest
-          use-cross: true
-          cargo-flags: ""
-        - target: aarch64-unknown-linux-musl
-          os: ubuntu-latest
-          use-cross: true
-          cargo-flags: ""
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            use-cross: false
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            use-cross: false
+            apt-pkgs: musl-tools
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            use-cross: true
 
-    runs-on: ${{matrix.os}}
+    runs-on: ${{ matrix.os }}
     env:
       BUILD_CMD: cargo
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Check Tag
-      id: check-tag
-      shell: bash
-      run: |
-        ver=${GITHUB_REF##*/}
-        echo "version=$ver" >> $GITHUB_OUTPUT
-        if [[ "$ver" =~ [0-9]+.[0-9]+.[0-9]+$ ]]; then
-          echo "rc=false" >> $GITHUB_OUTPUT
-        else
-          echo "rc=true" >> $GITHUB_OUTPUT
-        fi
+      - name: Check Tag
+        id: check-tag
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ver="${{ github.event.inputs.tag }}"
+          else
+            ver="${GITHUB_REF##*/}"
+          fi
+          echo "version=$ver" >> $GITHUB_OUTPUT
+          if [[ "$ver" =~ [0-9]+.[0-9]+.[0-9]+$ ]]; then
+            echo "rc=false" >> $GITHUB_OUTPUT
+          else
+            echo "rc=true" >> $GITHUB_OUTPUT
+          fi
 
+      - name: Install musl-tools (for native x86_64 musl build)
+        if: matrix.apt-pkgs != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt-pkgs }}
 
-    - name: Install Rust Toolchain Components
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
+      - name: Install Rust Toolchain Components
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-    - name: Install cross
-      if: matrix.use-cross
-      uses: taiki-e/install-action@v2
-      with:
-        tool: cross
+      - name: Install cross
+        if: matrix.use-cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
-    - name: Overwrite build command env variable
-      if: matrix.use-cross
-      shell: bash
-      run: echo "BUILD_CMD=cross" >> $GITHUB_ENV
-  
-    - name: Show Version Information (Rust, cargo, GCC)
-      shell: bash
-      run: |
-        gcc --version || true
-        rustup -V
-        rustup toolchain list
-        rustup default
-        cargo -V
-        rustc -V
-      
-    - name: Build
-      shell: bash
-      run: $BUILD_CMD build --release --target=${{ matrix.target }} ${{ matrix.cargo-flags }}
+      - name: Overwrite build command env variable
+        if: matrix.use-cross
+        shell: bash
+        run: echo "BUILD_CMD=cross" >> $GITHUB_ENV
 
-    - name: Build Archive
-      shell: bash
-      id: package
-      env:
-        target: ${{ matrix.target }}
-        version:  ${{ steps.check-tag.outputs.version }}
-      run: |
-        set -euxo pipefail
+      - name: Build (with retry for docker pull)
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            $BUILD_CMD build --release --target=${{ matrix.target }} && break || sleep 10
+          done
 
-        bin=${GITHUB_REPOSITORY##*/}
-        dist_dir=`pwd`/dist
-        name=$bin-$version-$target
-        executable=target/$target/release/$bin
+      - name: Build Archive
+        shell: bash
+        id: package
+        env:
+          target: ${{ matrix.target }}
+          version: ${{ steps.check-tag.outputs.version }}
+        run: |
+          set -euxo pipefail
+          bin=${GITHUB_REPOSITORY##*/}
+          dist_dir=`pwd`/dist
+          name=$bin-$version-$target
+          executable=target/$target/release/$bin
 
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          executable=$executable.exe
-        fi
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            executable=$executable.exe
+          fi
 
-        mkdir $dist_dir
-        cp $executable $dist_dir
-        cd $dist_dir
+          mkdir -p $dist_dir
+          cp $executable $dist_dir
+          cd $dist_dir
 
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
             archive=$dist_dir/$name.zip
             7z a $archive *
             echo "archive=dist/$name.zip" >> $GITHUB_OUTPUT
-        else
+          else
             archive=$dist_dir/$name.tar.gz
             tar -czf $archive *
             echo "archive=dist/$name.tar.gz" >> $GITHUB_OUTPUT
-        fi
+          fi
 
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: apls-dufs-${{ steps.check-tag.outputs.version }}-${{ matrix.target }}
-        path: ${{ steps.package.outputs.archive }}
-        retention-days: 90
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apls-dufs-${{ steps.check-tag.outputs.version }}-${{ matrix.target }}
+          path: ${{ steps.package.outputs.archive }}
+          retention-days: 90
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.check-tag.outputs.version }}
+          files: ${{ steps.package.outputs.archive }}
+          prerelease: ${{ steps.check-tag.outputs.rc }}
