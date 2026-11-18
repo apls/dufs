@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use async_zip::Compression;
+use async_deflate_zip::CompressionLevel;
 use clap::builder::{PossibleValue, PossibleValuesParser};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueEnum};
 use clap_complete::{generate, Generator, Shell};
@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use crate::auth::AccessControl;
 use crate::http_logger::HttpLogger;
-use crate::utils::encode_uri;
+use crate::utils::{encode_uri, is_ipv6_available};
 
 pub fn build_cli() -> Command {
     let app = Command::new(env!("CARGO_CRATE_NAME"))
@@ -149,6 +149,14 @@ pub fn build_cli() -> Command {
                 .help("Allow download folders as archive file"),
         )
         .arg(
+            Arg::new("allow-hash")
+                .env("DUFS_ALLOW_HASH")
+                .hide_env(true)
+                .long("allow-hash")
+                .action(ArgAction::SetTrue)
+                .help("Allow ?hash query to get file sha256 hash"),
+        )
+        .arg(
             Arg::new("enable-cors")
                 .env("DUFS_ENABLE_CORS")
 				.hide_env(true)
@@ -281,11 +289,13 @@ pub struct Args {
     pub allow_search: bool,
     pub allow_symlink: bool,
     pub allow_archive: bool,
+    pub allow_hash: bool,
     pub render_index: bool,
     pub render_spa: bool,
     pub render_try_index: bool,
     pub enable_cors: bool,
     pub assets: Option<PathBuf>,
+    pub error_page: Option<PathBuf>,
     #[serde(deserialize_with = "deserialize_log_http")]
     #[serde(rename = "log-format")]
     pub http_logger: HttpLogger,
@@ -306,7 +316,7 @@ impl Args {
         if let Some(config_path) = matches.get_one::<PathBuf>("config") {
             let contents = std::fs::read_to_string(config_path)
                 .with_context(|| format!("Failed to read config at {}", config_path.display()))?;
-            args = serde_yaml::from_str(&contents)
+            args = serde_saphyr::from_str(&contents)
                 .with_context(|| format!("Failed to load config at {}", config_path.display()))?;
         }
 
@@ -334,7 +344,7 @@ impl Args {
         args.uri_prefix = if args.path_prefix.is_empty() {
             "/".to_owned()
         } else {
-            format!("/{}/", &encode_uri(&args.path_prefix))
+            format!("/{}/", encode_uri(&args.path_prefix))
         };
 
         if let Some(hidden) = matches.get_many::<String>("hidden") {
@@ -375,6 +385,9 @@ impl Args {
         if !args.allow_symlink {
             args.allow_symlink = allow_all || matches.get_flag("allow-symlink");
         }
+        if !args.allow_hash {
+            args.allow_hash = allow_all || matches.get_flag("allow-hash");
+        }
         if !args.allow_archive {
             args.allow_archive = allow_all || matches.get_flag("allow-archive");
         }
@@ -396,6 +409,13 @@ impl Args {
 
         if let Some(assets_path) = &args.assets {
             args.assets = Some(Args::sanitize_assets_path(assets_path)?);
+        }
+
+        if let Some(assets_path) = &args.assets {
+            let p = assets_path.join("404.html");
+            if p.exists() {
+                args.error_page = Some(p);
+            }
         }
 
         if let Some(log_format) = matches.get_one::<String>("log-format") {
@@ -492,9 +512,8 @@ impl BindAddr {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-#[derive(Default)]
 pub enum Compress {
     None,
     #[default]
@@ -519,12 +538,12 @@ impl ValueEnum for Compress {
 }
 
 impl Compress {
-    pub fn to_compression(self) -> Compression {
+    pub fn to_compression(self) -> CompressionLevel {
         match self {
-            Compress::None => Compression::Stored,
-            Compress::Low => Compression::Deflate,
-            Compress::Medium => Compression::Bz,
-            Compress::High => Compression::Xz,
+            Compress::None => CompressionLevel::none(),
+            Compress::Low => CompressionLevel::fast(),
+            Compress::Medium => CompressionLevel::default(),
+            Compress::High => CompressionLevel::best(),
         }
     }
 }
@@ -614,7 +633,12 @@ fn default_serve_path() -> PathBuf {
 }
 
 fn default_addrs() -> Vec<BindAddr> {
-    BindAddr::parse_addrs(&["0.0.0.0", "::"]).unwrap()
+    let addrs = if is_ipv6_available() {
+        ["0.0.0.0", "::"].as_slice()
+    } else {
+        ["0.0.0.0"].as_slice()
+    };
+    BindAddr::parse_addrs(addrs).unwrap()
 }
 
 fn default_port() -> u16 {
