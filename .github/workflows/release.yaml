@@ -37,7 +37,7 @@ jobs:
       BUILD_CMD: cargo
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check Tag
         id: check-tag
@@ -114,7 +114,7 @@ jobs:
           fi
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: apls-dufs-${{ steps.check-tag.outputs.version }}-${{ matrix.target }}
           path: ${{ steps.package.outputs.archive }}
