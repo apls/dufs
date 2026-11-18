@@ -67,25 +67,15 @@ pub fn join_within(base: &Path, relative: &str) -> Option<PathBuf> {
 #[cfg(feature = "tls")]
 pub fn load_certs<T: AsRef<Path>>(file_name: T) -> Result<Vec<CertificateDer<'static>>> {
     let mut certs = vec![];
-    for cert in CertificateDer::pem_file_iter(file_name.as_ref()).with_context(|| {
-        format!(
-            "加载证书文件失败 `{}`",
-            file_name.as_ref().display()
-        )
-    })? {
-        let cert = cert.with_context(|| {
-            format!(
-                "证书数据无效 `{}`",
-                file_name.as_ref().display()
-            )
-        })?;
+    for cert in CertificateDer::pem_file_iter(file_name.as_ref())
+        .with_context(|| format!("加载证书文件失败 `{}`", file_name.as_ref().display()))?
+    {
+        let cert =
+            cert.with_context(|| format!("证书数据无效 `{}`", file_name.as_ref().display()))?;
         certs.push(cert)
     }
     if certs.is_empty() {
-        anyhow::bail!(
-            "不支持的证书 `{}`",
-            file_name.as_ref().display()
-        );
+        anyhow::bail!("不支持的证书 `{}`", file_name.as_ref().display());
     }
     Ok(certs)
 }
@@ -93,12 +83,8 @@ pub fn load_certs<T: AsRef<Path>>(file_name: T) -> Result<Vec<CertificateDer<'st
 // Load private key from file.
 #[cfg(feature = "tls")]
 pub fn load_private_key<T: AsRef<Path>>(file_name: T) -> Result<PrivateKeyDer<'static>> {
-    PrivateKeyDer::from_pem_file(file_name.as_ref()).with_context(|| {
-        format!(
-            "加载私钥文件失败 `{}`",
-            file_name.as_ref().display()
-        )
-    })
+    PrivateKeyDer::from_pem_file(file_name.as_ref())
+        .with_context(|| format!("加载私钥文件失败 `{}`", file_name.as_ref().display()))
 }
 
 pub fn parse_range(range: &str, size: u64) -> Option<Vec<(u64, u64)>> {
