@@ -39,10 +39,15 @@ jobs:
 
     - name: Clippy
       run: cargo clippy --all --all-targets
-
-    - name: Format
-      run: cargo fmt --all --check
       
+    - name: Run cargo fmt
+      run: cargo fmt --all
+
+    - name: Commit formatted files
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "style: auto format with cargo fmt"
+        
     - name: Upload
       # if: always()                         # upload even on failure (optional)
       uses: actions/upload-artifact@v4
